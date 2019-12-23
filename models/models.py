@@ -1,17 +1,21 @@
 import tensorflow as tf
 from tensorflow.keras import Model
 from tensorflow.keras.layers import (
+    Conv2D,
+    MaxPooling2D,
+    BatchNormalization,
     Dense,
     Dropout,
     Flatten,
     Input,
+    Activation
 )
 from tensorflow.keras.applications import (
     MobileNetV2,
     ResNet50,
     Xception
 )
-from .layers import (
+from .loss_layers import (
     BatchNormalization,
     ArcFace
 )
@@ -23,22 +27,22 @@ def _regularizer(weights_decay=5e-4):
 
 def vgg_block(x, filters, layers):
     for _ in range(layers):
-        x = tf.keras.layers.Conv2D(filters, (3, 3), padding='same', kernel_initializer='he_normal',
+        x = Conv2D(filters, (3, 3), padding='same', kernel_initializer='he_normal',
                                    kernel_regularizer=_regularizer())(x)
-        x = tf.keras.layers.BatchNormalization()(x)
-        x = tf.keras.layers.Activation('relu')(x)
+        x = BatchNormalization()(x)
+        x = Activation('relu')(x)
     return x
 
 
 def vgg8(input_shape, name='vgg8'):
-    input = tf.keras.layers.Input(shape=input_shape)
+    input = Input(shape=input_shape)
 
     x = vgg_block(input, 16, 2)
-    x = tf.keras.layers.MaxPooling2D(pool_size=(2, 2))(x)
+    x = MaxPooling2D(pool_size=(2, 2))(x)
     x = vgg_block(x, 32, 2)
-    x = tf.keras.layers.MaxPooling2D(pool_size=(2, 2))(x)
+    x = MaxPooling2D(pool_size=(2, 2))(x)
     x = vgg_block(x, 64, 2)
-    out = tf.keras.layers.MaxPooling2D(pool_size=(2, 2))(x)
+    out = MaxPooling2D(pool_size=(2, 2))(x)
 
     return tf.keras.Model(input, out, name=name)
 

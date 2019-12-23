@@ -10,7 +10,7 @@ from models.models import ArcFaceModel
 def get_parser():
     parser = argparse.ArgumentParser(description='parameters to train net')
     parser.add_argument('--train_mode', type=str, choices=['eager_mode', 'fit_mode'], help='mode to train',
-                        default='eager_mode')
+                        default='fit_mode')
     parser.add_argument('--max_epoch', type=int, help='epoch to train the network', default=10)
     parser.add_argument('--image_size', help='the image size', default=28)
     parser.add_argument('--image_channels', type=int, help='the image size', default=1)
@@ -98,18 +98,6 @@ if __name__ == '__main__':
     train_images = (train_images[:, :, :, np.newaxis].astype('float32') - 127.5) / 127.5
     test_images = (test_images[:, :, :, np.newaxis].astype('float32') - 127.5) / 127.5
 
-#    with strategy.scope():
-    # Load Model
-    model = ArcFaceModel(size=args.image_size,
-                         backbone_type=args.backbone_model,
-                         channels=1, num_classes=args.class_number,
-                         head_type=args.loss_head_type,
-                         embd_shape=args.embedding_size,
-                         logist_scale=10,
-                         training=True)
-    model.summary()
-    tf.keras.utils.plot_model(model, show_shapes=True, show_layer_names=True, expand_nested=True)
-
     # Define optimizer & learning rate schedule
     starter_learning_rate = args.initial_learning_rate
     end_learning_rate = args.initial_learning_rate * 0.01
@@ -143,6 +131,17 @@ if __name__ == '__main__':
         train_dataset = train_dataset.shuffle(len(train_images))
         train_dataset = train_dataset.batch(args.train_batch_size)
         train_dist_dataset = strategy.experimental_distribute_dataset(train_dataset)
+
+        # Load Model
+        model = ArcFaceModel(size=args.image_size,
+                             backbone_type=args.backbone_model,
+                             channels=1, num_classes=args.class_number,
+                             head_type=args.loss_head_type,
+                             embd_shape=args.embedding_size,
+                             logist_scale=10,
+                             training=True)
+        model.summary()
+        tf.keras.utils.plot_model(model, show_shapes=True, show_layer_names=True, expand_nested=True)
 
         loss_fn = tf.keras.losses.SparseCategoricalCrossentropy()
         train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy')
@@ -205,25 +204,35 @@ if __name__ == '__main__':
 
     else:
         with strategy.scope():
-            # Start training
+            # Load Model
+            model = ArcFaceModel(size=args.image_size,
+                                 backbone_type=args.backbone_model,
+                                 channels=1, num_classes=args.class_number,
+                                 head_type=args.loss_head_type,
+                                 embd_shape=args.embedding_size,
+                                 logist_scale=10,
+                                 training=True)
+            model.summary()
+            tf.keras.utils.plot_model(model, show_shapes=True, show_layer_names=True, expand_nested=True)
+
             model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizer, metrics=['accuracy'])
 
-            mc_callback = tf.keras.callbacks.ModelCheckpoint(
-                os.path.join(args.save_path, args.backbone_model + '_' + args.loss_head_type + '/epoch_{epoch}.ckpt'),
-                verbose=1,
-                save_weights_only=True)
+        mc_callback = tf.keras.callbacks.ModelCheckpoint(
+            os.path.join(args.save_path, args.backbone_model + '_' + args.loss_head_type + '/epoch_{epoch}.ckpt'),
+            verbose=1,
+            save_weights_only=True)
 
-            tb_callback = tf.keras.callbacks.TensorBoard(
-                log_dir=train_log_dir,
-                update_freq=args.train_batch_size)
+        tb_callback = tf.keras.callbacks.TensorBoard(
+            log_dir=train_log_dir,
+            update_freq=args.train_batch_size)
 
-            callbacks = [mc_callback, tb_callback]
+        callbacks = [mc_callback, tb_callback]
 
-            history = model.fit([train_images, train_labels], train_labels,
-                                epochs=args.max_epoch,
-                                batch_size=args.train_batch_size,
-                                callbacks=callbacks)
+        history = model.fit([train_images, train_labels], train_labels,
+                            epochs=args.max_epoch,
+                            batch_size=args.train_batch_size,
+                            callbacks=callbacks)
 
-            # Test
-            test_step([test_images, test_labels])
+        # Test
+        test_step([test_images, test_labels])
 
