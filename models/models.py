@@ -16,7 +16,6 @@ from tensorflow.keras.applications import (
     Xception
 )
 from .loss_layers import (
-    BatchNormalization,
     ArcFace
 )
 
